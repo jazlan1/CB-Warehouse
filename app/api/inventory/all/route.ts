@@ -13,16 +13,46 @@ export async function GET(req: Request) {
       );
     }
 
+    const { searchParams } = new URL(req.url);
+    const targetClientId = searchParams.get("clientId");
+
     let whereClause: any = { isDeleted: false };
 
     if (user.role === "CLIENT") {
+      // Regular client can ONLY see their assigned inventory
       whereClause.clientId = user.id;
-    } else if (["CB", "ADMIN"].includes(user.role)) {
-      whereClause.createdById = user.id;
+    } else if (user.role === "ADMIN") {
+      // Admin can view all inventory or filter by specific client
+      if (targetClientId && targetClientId !== "ALL") {
+        whereClause.clientId = targetClientId;
+      }
+    } else if (user.role === "CB") {
+      // CB Warehouse team can view all or filtered
+      if (targetClientId && targetClientId !== "ALL") {
+        whereClause.clientId = targetClientId;
+      }
     }
 
     const inventory = await prisma.inventory.findMany({
       where: whereClause,
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 

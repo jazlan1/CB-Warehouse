@@ -14,7 +14,8 @@ export async function POST(req: Request) {
       shipToAddress, 
       returnAddress, 
       specialInstructions, 
-      cartItems 
+      cartItems,
+      clientId: requestedClientId
     } = body;
 
     if (!eventName || !eventDate || !shipToAddress || !returnAddress || !cartItems || Object.keys(cartItems).length === 0) {
@@ -24,15 +25,20 @@ export async function POST(req: Request) {
       );
     }
 
+    let assignedClientId = user.id;
+    if (["ADMIN", "CB"].includes(user.role) && requestedClientId) {
+      assignedClientId = requestedClientId;
+    }
+
     const newOrder = await prisma.order.create({
       data: {
-        orderNumber,
+        orderNumber: orderNumber ? Number(orderNumber) : undefined,
         eventName,
         eventDate: new Date(eventDate),
         shipToAddress,
         returnAddress,
         specialInstructions: specialInstructions || null,
-        clientId: user.id,
+        clientId: assignedClientId,
         items: {
           create: Object.entries(cartItems).map(([inventoryId, qty]) => ({
             inventoryId: inventoryId,
@@ -41,14 +47,19 @@ export async function POST(req: Request) {
         },
       },
       include: {
-        items: true,
+        client: true,
+        items: {
+          include: {
+            inventory: true,
+          },
+        },
       },
     });
 
     return NextResponse.json(
       { 
         success: true, 
-        message: "Order dynamic request created successfully.", 
+        message: "Order request created successfully.", 
         data: newOrder 
       },
       { status: 201 }

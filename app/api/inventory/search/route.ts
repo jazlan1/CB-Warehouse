@@ -1,21 +1,49 @@
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/auth";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const email = searchParams.get("email") || "";
+  try {
+    const user = await getAuthUser(req);
 
-  const users = await prisma.user.findMany({
-    where: {
-      email: { contains: email, mode: "insensitive" },
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      companyName: true,
-    },
-    take: 5,
-  });
+    if (!["ADMIN", "CB"].includes(user.role)) {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+    }
 
-  return Response.json({ success: true, data: users });
+    const { searchParams } = new URL(req.url);
+    const query = (searchParams.get("email") || searchParams.get("query") || "").trim();
+
+    let whereQuery: any = {
+      isActivated: true,
+      role: { in: ["CLIENT", "CB"] },
+    };
+
+    if (query.length > 0) {
+      whereQuery.OR = [
+        { email: { contains: query, mode: "insensitive" } },
+        { name: { contains: query, mode: "insensitive" } },
+        { companyName: { contains: query, mode: "insensitive" } },
+      ];
+    }
+
+    const users = await prisma.user.findMany({
+      where: whereQuery,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        companyName: true,
+      },
+      take: 25,
+      orderBy: { name: "asc" },
+    });
+
+    return NextResponse.json({ success: true, data: users });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, message: err.message },
+      { status: err.message?.includes("Unauthorized") ? 401 : 500 }
+    );
+  }
 }

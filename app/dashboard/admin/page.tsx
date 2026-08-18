@@ -7,13 +7,14 @@ import {
   ArrowUpRight, ArrowDownRight, MapPin, ChevronRight,
   Bell, Search, Filter, Plus, Eye, CheckCircle2,
   XCircle, RefreshCw, Warehouse, Calendar, FileText,
-  TrendingUp, Box, RotateCcw, Menu, X
+  TrendingUp, Box, RotateCcw, Menu, X, PlusCircle
 } from "lucide-react";
 import ClientsPanel from "@/src/app/admin/components/client";
 import InventoryList from "@/src/app/admin/components/InventoryList";
 import ShipmentsPanel from "@/src/app/admin/components/ShipmentsPanel";
 import ReturnsAudits from "@/src/app/team/ReturnsAudits";
 import Invoice from "@/src/app/team/Invoice";
+import IntakeSKU from "@/src/app/team/IntakeSKU";
 import dynamic from "next/dynamic";
 
 const Dash = dynamic(() => import("@/src/app/admin/components/dashboard"), {
@@ -25,6 +26,7 @@ type NavItem = { label: string; icon: React.ElementType; id: string };
 const NAV: NavItem[] = [
   { label: "Dashboard", icon: BarChart3, id: "dashboard" },
   { label: "Inventory Ledger", icon: Package, id: "inventory" },
+  { label: "Add / Intake Stock", icon: PlusCircle, id: "intake" },
   { label: "Shipments & Orders", icon: Truck, id: "shipments" },
   { label: "Clients Directory", icon: Users, id: "clients" },
   { label: "Returns & Audits", icon: RotateCcw, id: "returns" },
@@ -58,6 +60,8 @@ export default function AdminDashboard({ onNavigate }: { onNavigate?: (page: str
       case "inventory":
       case "inventory-list":
         return <InventoryList />;
+      case "intake":
+        return <IntakeSKU />;
       case "shipments":
         return <ShipmentsPanel />;
       case "returns":
@@ -138,45 +142,78 @@ export default function AdminDashboard({ onNavigate }: { onNavigate?: (page: str
               </div>
               <div className="flex gap-2 items-start">
                 <MapPin className="h-3 w-3 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-300 leading-tight">9894 Bissonnet St, Ste 908, Houston TX 77036</p>
+                <p className="text-[10px] text-slate-300 leading-tight">4848 North Loop E Fwy, Houston TX 77028</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* User + Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-xs font-bold text-white shadow-xs">
-              {user?.name?.charAt(0) || "A"}
+        {/* BOTTOM USER & LOGOUT */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">
+                AD
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Administrator</p>
+                <p className="text-[10px] text-slate-400">Full System Control</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{user?.name || "System Admin"}</p>
-              <p className="text-[10px] text-slate-400 font-medium">{user?.role || "ADMIN"}</p>
-            </div>
+
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 text-xs text-red-400 hover:text-white hover:bg-red-600/20 py-2 rounded-xl border border-red-500/20 transition-all font-semibold"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign Out
-          </button>
         </div>
       </aside>
 
-      {/* MOBILE OVERLAY */}
+      {/* BACKDROP FOR MOBILE */}
       {mobileMenuOpen && (
-        <div 
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
-          className="md:hidden fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-xs"
         />
       )}
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 md:ml-64 min-h-screen pt-16 md:pt-0">
-        <div className="p-6 md:p-8 space-y-6">
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 md:ml-64 flex flex-col min-h-screen pt-14 md:pt-0">
+        
+        {/* TOP BAR */}
+        <header className="h-16 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base font-bold text-slate-800 capitalize">
+              {NAV.find(n => n.id === activeNav)?.label || "Admin Console"}
+            </h1>
+            <span className="text-slate-300">/</span>
+            <span className="text-xs text-slate-500 font-medium">Enterprise Management</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Hostinger Cluster
+            </div>
+            
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-slate-200 transition"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </header>
+
+        {/* VIEW CONTAINER */}
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
           {renderContent()}
         </div>
+
       </main>
     </div>
   );

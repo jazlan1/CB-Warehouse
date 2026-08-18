@@ -26,7 +26,6 @@ export async function POST(req: Request) {
 
     const imagesFiles = formData.getAll("images") as File[];
 
-    // Upload files to persistent storage (Cloudinary or local persistent disk)
     const imageUrls: string[] = [];
 
     for (const file of imagesFiles) {
@@ -48,10 +47,14 @@ export async function POST(req: Request) {
         bin,
         quantity,
         description,
-        condition,
+        condition: condition || "Good",
         images: imageUrls,
         createdById: user.id,
-        clientId: clientId || null,
+        clientId: clientId && clientId !== "unassigned" ? clientId : null,
+      },
+      include: {
+        client: true,
+        createdBy: true,
       },
     });
 
@@ -78,11 +81,31 @@ export async function GET(req: Request) {
   try {
     const user = await getAuthUser(req);
 
+    if (!["CB", "ADMIN"].includes(user.role)) {
+      return NextResponse.json(
+        { message: "Forbidden: insufficient permissions" },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const targetClientId = searchParams.get("clientId");
+
+    let whereClause: any = { isDeleted: false };
+
+    if (user.role === "ADMIN") {
+      // Admin sees all or filtered by target client
+      if (targetClientId && targetClientId !== "ALL") {
+        whereClause.clientId = targetClientId;
+      }
+    } else if (user.role === "CB") {
+      if (targetClientId && targetClientId !== "ALL") {
+        whereClause.clientId = targetClientId;
+      }
+    }
+
     const inventoryItems = await prisma.inventory.findMany({
-      where: {
-        createdById: user.id,
-        isDeleted: false,
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,
@@ -93,19 +116,25 @@ export async function GET(req: Request) {
         description: true,
         images: true,
         stockStatus: true,
+        createdAt: true,
         createdBy: {
           select: {
+            id: true,
             name: true,
             email: true,
+            role: true,
           },
         },
         client: {
           select: {
+            id: true,
             name: true,
             email: true,
+            role: true,
           },
         },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({
@@ -135,8 +164,14 @@ export async function PUT(req: Request) {
       return NextResponse.json({ success: false, message: "Item ID is required" }, { status: 400 });
     }
 
+    // Admin can edit any item; CB can edit items or system items
+    const whereQuery: any = { id: itemId };
+    if (user.role !== "ADMIN") {
+      whereQuery.OR = [{ createdById: user.id }, { createdById: { not: "" } }];
+    }
+
     const existingItem = await prisma.inventory.findFirst({
-      where: { id: itemId, createdById: user.id },
+      where: whereQuery,
     });
 
     if (!existingItem) {
@@ -150,6 +185,7 @@ export async function PUT(req: Request) {
     const description = formData.get("description") as string;
     const condition = formData.get("condition") as string;
     const quantity = formData.get("quantity") ? Number(formData.get("quantity")) : undefined;
+    const clientId = formData.get("clientId") as string;
 
     let finalImages = [...existingItem.images];
     const newImagesFiles = formData.getAll("images") as File[];
@@ -171,16 +207,26 @@ export async function PUT(req: Request) {
       finalImages = uploadedUrls;
     }
 
+    const updateData: any = {
+      name: name || undefined,
+      sku: sku || undefined,
+      bin: bin || undefined,
+      description: description !== undefined ? description : undefined,
+      condition: condition || undefined,
+      quantity: quantity,
+      images: finalImages,
+    };
+
+    if (clientId !== undefined) {
+      updateData.clientId = clientId === "unassigned" || clientId === "" ? null : clientId;
+    }
+
     const updatedInventory = await prisma.inventory.update({
       where: { id: itemId },
-      data: {
-        name: name || undefined,
-        sku: sku || undefined,
-        bin: bin || undefined,
-        description: description || undefined,
-        condition: condition || undefined,
-        quantity: quantity,
-        images: finalImages,
+      data: updateData,
+      include: {
+        client: true,
+        createdBy: true,
       },
     });
 
@@ -209,8 +255,13 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: "Item ID is required" }, { status: 400 });
     }
 
+    const whereQuery: any = { id: itemId };
+    if (user.role !== "ADMIN") {
+      whereQuery.createdById = user.id;
+    }
+
     const existingItem = await prisma.inventory.findFirst({
-      where: { id: itemId, createdById: user.id },
+      where: whereQuery,
     });
 
     if (!existingItem) {
@@ -223,7 +274,7 @@ export async function DELETE(req: Request) {
     });
 
     return NextResponse.json(
-      { success: true, message: "Inventory item archived and removed from active stock successfully." },
+      { success: true, message: "Inventory item archived successfully." },
       { status: 200 }
     );
   } catch (err: any) {
@@ -253,8 +304,13 @@ export async function PATCH(req: Request) {
       );
     }
 
+    const whereQuery: any = { id: itemId, isDeleted: false };
+    if (user.role !== "ADMIN") {
+      whereQuery.createdById = user.id;
+    }
+
     const existingItem = await prisma.inventory.findFirst({
-      where: { id: itemId, createdById: user.id, isDeleted: false },
+      where: whereQuery,
     });
 
     if (!existingItem) {

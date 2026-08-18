@@ -5,8 +5,14 @@ import { sendOrderStatusEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
-    // Auth Check
-    await getAuthUser(req);
+    const user = await getAuthUser(req);
+
+    if (!["ADMIN", "CB"].includes(user.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Only Admin and CB Team can update shipment status." },
+        { status: 403 }
+      );
+    }
 
     const { id, status } = await req.json();
 
@@ -20,7 +26,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find Order + Client
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -40,11 +45,19 @@ export async function POST(req: Request) {
 
     const oldStatus = order.status;
 
-    // Update Status
     const updatedOrder = await prisma.order.update({
       where: { id },
       data: {
         status,
+        updatedAt: new Date(),
+      },
+      include: {
+        client: true,
+        items: {
+          include: {
+            inventory: true,
+          },
+        },
       },
     });
 

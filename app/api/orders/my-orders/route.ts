@@ -1,14 +1,37 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserIdFromToken } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
-    const userId = await getUserIdFromToken(req);
+    const user = await getAuthUser(req);
+
+    const { searchParams } = new URL(req.url);
+    const targetClientId = searchParams.get("clientId");
+
+    let whereQuery: any = { clientId: user.id };
+
+    if (user.role === "ADMIN") {
+      if (targetClientId && targetClientId !== "ALL") {
+        whereQuery = { clientId: targetClientId };
+      } else if (!targetClientId) {
+        whereQuery = { clientId: user.id };
+      } else {
+        whereQuery = {};
+      }
+    }
 
     const orders = await prisma.order.findMany({
-      where: { clientId: userId },
+      where: whereQuery,
       include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
         items: {
           include: {
             inventory: true,

@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String      @id @default(uuid())
+  email       String      @unique
+  name        String?
+  password    String?
+  companyName String?
+  isActivated Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  otp         String?
+  otpExpiry   DateTime?
+  role        Role        @default(CLIENT)
+
+  inventories        Inventory[] @relation("CreatedByInventory")
+  clientInventories  Inventory[] @relation("ClientInventory")
+
+clientProfile ClientProfile?
+  cbProfile     CBProfile?
+
+  orders      Order[]
+   returns Return[]
+   
+  cartItems   CartItem[]
+}
+
+model ClientProfile {
+  id          String   @id @default(uuid())
+
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+
+  name        String
+  phone       String?
+  companyName String?
+
+  image       String?   // profile image
+  address     String?
+
+  notes       String?   // admin notes
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CBProfile {
+  id          String   @id @default(uuid())
+
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+
+  name        String
+  phone       String?
+  designation String?   // manager, operator etc
+
+  image       String?
+
+  shiftStart  String?
+  shiftEnd    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invitation {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  role        Role     @default(CLIENT)  // ✅ ADD THIS
+
+  name        String?
+  companyName String?
+  phone       String?
+  address     String?
+  notes       String?
+  image       String?
+}
+
+model Inventory {
+  id          String   @id @default(uuid())
+  name        String
+  sku         String
+  bin         String
+  quantity    Int
+  description String?
+  condition   String
+  images      String[] @default([])
+
+  createdById String
+  createdBy   User @relation("CreatedByInventory", fields: [createdById], references: [id])
+
+  clientId    String?
+  client      User? @relation("ClientInventory", fields: [clientId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  isDeleted   Boolean @default(false)
+  stockStatus StockStatus @default(IN_STOCK)
+
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  movements InventoryMovement[]
+  returnItems ReturnItem[]
+}
+
+enum StockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+enum Role {
+  CLIENT
+  CB
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id                  String      @id @default(uuid())
+  orderNumber         Int         @unique @default(autoincrement())
+  eventName           String      // Form -> eventName
+  eventDate           DateTime    // Form -> eventDate (String to DateTime convert hoga backend par)
+  shipToAddress       String      // Form -> shipToAddress
+  returnAddress       String      // Form -> returnAddress
+  specialInstructions String?     // Form -> specialInstructions (Optional)
+  status              OrderStatus @default(PENDING)
+  
+  clientId            String
+  client              User        @relation(fields: [clientId], references: [id])
+  items               OrderItem[] // Is order me kaun konse inventory items hain
+
+   returns Return[]
+  
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+// 🚀 NAYA MODEL: ORDER ITEMS JUNCTION (Cart components matrix)
+model OrderItem {
+  id          String    @id @default(uuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  
+  quantity    Int       // Us item ki ordered quantity mapping
+}
+
+model CartItem {
+  id          String    @id @default(uuid())
+  quantity    Int       @default(1)
+
+  // Relations
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // ⚡ Composite Unique constraint: Ek user ek item ko cart me ek hi baar add kar sakega.
+  // Dobara click karne par naya row nahi banega, balkay quantity barh jayegi.
+  @@unique([userId, inventoryId])
+  @@index([userId])
+}
+
+model Return {
+  id        String   @id @default(uuid())
+
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  clientId  String
+  client    User     @relation(fields: [clientId], references: [id])
+
+  status    ReturnStatus @default(PENDING)
+
+  receivedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     ReturnItem[]
+}
+
+model ReturnItem {
+  id          String   @id @default(uuid())
+
+  returnId    String
+  return      Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+
+  quantity    Int
+
+  condition   ReturnCondition @default(OK)
+}
+
+enum ReturnStatus {
+  PENDING
+  RECEIVED
+  VERIFIED
+  COMPLETED
+}
+
+enum ReturnCondition {
+  OK
+  DAMAGED
+  MISSING
+}
+
+model InventoryMovement {
+  id          String @id @default(uuid())
+
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+
+  type        MovementType
+  quantity    Int
+
+  referenceId String? // order or return id
+
+  createdAt   DateTime @default(now())
+}
+
+enum MovementType {
+  OUTGOING
+  RETURN
+  ADJUSTMENT
+}

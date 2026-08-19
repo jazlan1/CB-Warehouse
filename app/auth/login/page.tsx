@@ -1,19 +1,19 @@
-// app/login/page.tsx
 "use client";
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { Package, ShieldCheck, Lock, Mail, ArrowRight, KeyRound } from 'lucide-react';
+import { 
+  Package, ShieldCheck, Mail, Lock, 
+  ArrowRight, Users, Warehouse, AlertCircle
+} from 'lucide-react';
 
 export default function LoginPage() {
   const [role, setRole] = useState<'client' | 'warehouse'>('client');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [otpPopup, setOtpPopup] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  // ✅ Admin ke liye alag handler
+  // Admin / Staff Login
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -33,12 +33,7 @@ export default function LoginPage() {
         return;
       }
 
-      if (data.debugOtp) {
-        alert(`🔑 Your Admin OTP is: ${data.debugOtp}`);
-      }
-
-      const otpParam = data.debugOtp ? `&otp=${encodeURIComponent(data.debugOtp)}` : '';
-      window.location.href = `/verify-otp/admin?email=${encodeURIComponent(email)}${otpParam}`;
+      window.location.href = `/verify-otp/admin?email=${encodeURIComponent(email)}`;
     } catch (err) {
       setError("Failed to connect to server.");
     } finally {
@@ -46,7 +41,7 @@ export default function LoginPage() {
     }
   };
 
-  // ✅ Client ke liye alag handler
+  // Client Login
   const handleClientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -64,11 +59,7 @@ export default function LoginPage() {
       if (!response.ok) {
         setError(data.error || "Invalid email or password.");
       } else {
-        if (data.debugOtp) {
-          alert(`🔑 Your Client Login OTP is: ${data.debugOtp}`);
-        }
-        const otpParam = data.debugOtp ? `&otp=${encodeURIComponent(data.debugOtp)}` : '';
-        window.location.href = `/verify-otp?email=${encodeURIComponent(email)}${otpParam}`;
+        window.location.href = `/verify-otp?email=${encodeURIComponent(email)}`;
       }
     } catch (err) {
       setError("Failed to connect to server. Please try again.");
@@ -77,7 +68,6 @@ export default function LoginPage() {
     }
   };
 
-  // ✅ Role ke hisaab se sahi handler choose karo
   const handleSubmit = (e: React.FormEvent) => {
     if (role === 'warehouse') {
       handleAdminLogin(e);
@@ -140,107 +130,96 @@ export default function LoginPage() {
             <p className="text-sm text-slate-500 mt-1.5">Sign in to manage your events or track assets.</p>
           </div>
 
-          {/* ROLE TABS */}
-          <div className="p-1 bg-slate-100 border border-slate-200/60 rounded-xl flex">
+          {/* Role Selector Tabs */}
+          <div className="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={() => { setRole('client'); setError(''); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                role === 'client' 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-800'
+              onClick={() => {
+                setRole('client');
+                setError('');
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                role === 'client'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
+              <Users className="h-4 w-4" />
               Experian Client
             </button>
             <button
               type="button"
-              onClick={() => { setRole('warehouse'); setError(''); }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                role === 'warehouse' 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-500 hover:text-slate-800'
+              onClick={() => {
+                setRole('warehouse');
+                setError('');
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                role === 'warehouse'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
+              <Warehouse className="h-4 w-4" />
               CB Warehouse / Admin
             </button>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
-              {error}
+            <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 block">Username / Email Address</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
+                Work Email Address
+              </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input 
-                  type="email" 
+                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={role === 'client' ? 'client@warehouse.com' : 'admin@warehouse.com'} 
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-slate-900"
-                  required
+                  placeholder="name@company.com" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-10 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 block">Password</label>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!email) {
-                      alert("Please enter your email first");
-                      return;
-                    }
-                    await fetch("/api/auth/forgot-password", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email }),
-                    });
-                    alert("Reset link sent to email");
-                  }}
-                  className="text-xs text-blue-600 hover:underline"
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                  Password
+                </label>
+                <a 
+                  href="/reset-password" 
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition"
                 >
                   Forgot Password?
-                </button>
+                </a>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input 
-                  type="password" 
+                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="password"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" 
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-slate-900"
-                  required
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-10 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
                 />
               </div>
             </div>
 
-            <div className="flex items-center">
-              <input 
-                id="remember-me" 
-                type="checkbox" 
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded-md accent-blue-600"
-              />
-              <label htmlFor="remember-me" className="ml-2 text-xs text-slate-600 font-medium cursor-pointer select-none">
-                Keep me logged in
-              </label>
-            </div>
-
-            <button 
+            <button
               type="submit"
               disabled={loading}
-              className={`w-full py-2.5 text-white rounded-xl text-sm font-semibold shadow-sm flex items-center justify-center gap-2 group transition-all mt-2 disabled:opacity-50 ${
+              className={`w-full py-3.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 group cursor-pointer ${
                 role === 'warehouse'
-                  ? 'bg-slate-800 hover:bg-slate-900 shadow-slate-800/10'
+                  ? 'bg-slate-900 hover:bg-slate-800 shadow-slate-900/10'
                   : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/10'
               }`}
             >
@@ -253,19 +232,6 @@ export default function LoginPage() {
               {!loading && <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />}
             </button>
           </form>
-
-          {/* Quick Demo Help */}
-          <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-xl mt-4 space-y-1.5 text-xs text-slate-700">
-            <p className="font-semibold text-blue-900 flex items-center gap-1.5">
-              <KeyRound className="w-3.5 h-3.5 text-blue-600" />
-              Demo Credentials:
-            </p>
-            <div className="text-[11px] text-slate-600 space-y-1">
-              <div>• <b>Admin:</b> <code>admin@warehouse.com</code> / <code>Admin@12345</code></div>
-              <div>• <b>CB Team:</b> <code>cb@warehouse.com</code> / <code>Team@12345</code></div>
-              <div>• <b>Client:</b> <code>client@warehouse.com</code> / <code>Client@12345</code></div>
-            </div>
-          </div>
 
           <div className="mt-8 text-center border-t border-slate-200 pt-4">
             <p className="text-xs text-slate-500">

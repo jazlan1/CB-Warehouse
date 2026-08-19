@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Users, Search, Mail, Phone, Truck, Calendar, Eye, Plus, X, Building2, Loader2, ShieldCheck, UserCheck, Clock, Package, Layers, ArrowUpRight
+  Users, Search, Mail, Phone, Truck, Calendar, Eye, Plus, X, Building2, 
+  Loader2, ShieldCheck, UserCheck, Clock, Package, Layers, ArrowUpRight,
+  Edit3, Trash2, AlertTriangle, Check, Shield
 } from "lucide-react";
 import AddClient from "./addClient";
 import { formatDateTime, formatDate, formatTime } from "@/lib/date";
@@ -15,6 +17,7 @@ type Client = {
   companyName?: string;
   role: "CLIENT" | "CB";
   createdAt: string;
+  isActivated?: boolean;
 };
 
 const initials = (name: string | null) =>
@@ -32,6 +35,17 @@ export default function ClientsPanel() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showAddClient, setShowAddClient] = useState(false);
 
+  // Edit / Delete states
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    companyName: "",
+    role: "CLIENT" as "CLIENT" | "CB",
+  });
+
   // Deep-dive state for selected client
   const [drawerTab, setDrawerTab] = useState<"profile" | "inventory" | "orders">("profile");
   const [clientInventory, setClientInventory] = useState<any[]>([]);
@@ -40,6 +54,7 @@ export default function ClientsPanel() {
 
   const fetchClients = async () => {
     try {
+      setLoading(true);
       const res = await fetch("/api/users/dashboard/clients", {
         credentials: "include",
       });
@@ -81,6 +96,79 @@ export default function ClientsPanel() {
     }
   };
 
+  const handleOpenEdit = (c: Client, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingClient(c);
+    setEditFormData({
+      name: c.name || "",
+      email: c.email || "",
+      companyName: c.companyName || "",
+      role: c.role || "CLIENT",
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/dashboard/clients?id=${editingClient.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editFormData),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setEditingClient(null);
+        fetchClients();
+        if (selectedClient && selectedClient.id === editingClient.id) {
+          setSelectedClient({ ...selectedClient, ...editFormData });
+        }
+      } else {
+        alert(data.message || "Failed to update client account.");
+      }
+    } catch (err) {
+      console.error("Update client error:", err);
+      alert("Error updating client account.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenDelete = (c: Client, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingClient(c);
+  };
+
+  const handleDelete = async () => {
+    if (!deletingClient) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/dashboard/clients?id=${deletingClient.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (selectedClient?.id === deletingClient.id) {
+          setSelectedClient(null);
+        }
+        setDeletingClient(null);
+        setClients((prev) => prev.filter((c) => c.id !== deletingClient.id));
+      } else {
+        alert(data.message || "Failed to delete client account.");
+      }
+    } catch (err) {
+      console.error("Delete client error:", err);
+      alert("Error deleting client account.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
     return (
@@ -104,7 +192,7 @@ export default function ClientsPanel() {
             Clients &amp; Accounts Management
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            Full management access: inspect client inventory pools, order history, permissions, and create accounts.
+            Manage client profiles, assign roles, edit details, or safely remove accounts.
           </p>
         </div>
 
@@ -158,7 +246,7 @@ export default function ClientsPanel() {
                   <th className="px-6 py-3.5 text-left">Email Address</th>
                   <th className="px-6 py-3.5 text-left">Role Permissions</th>
                   <th className="px-6 py-3.5 text-left">Registration Date</th>
-                  <th className="px-6 py-3.5 text-right">Deep Dive</th>
+                  <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
 
@@ -215,10 +303,30 @@ export default function ClientsPanel() {
                       </div>
                     </td>
 
-                    {/* Action Icon */}
-                    <td className="px-6 py-3.5 text-right">
-                      <div className="inline-flex items-center justify-center p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 group-hover:text-blue-600 group-hover:bg-blue-50 group-hover:border-blue-200 transition">
-                        <Eye className="h-3.5 w-3.5" />
+                    {/* Action Icons */}
+                    <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => handleOpenEdit(c, e)}
+                          title="Edit Account Details"
+                          className="p-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200 hover:border-blue-200 transition cursor-pointer"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => handleOpenDelete(c, e)}
+                          title="Delete Account"
+                          className="p-1.5 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 transition cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleSelectClient(c)}
+                          title="Deep Dive Overview"
+                          className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 transition cursor-pointer"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -242,6 +350,137 @@ export default function ClientsPanel() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── EDIT CLIENT MODAL ─── */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Edit3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Edit Client Profile</h3>
+                  <p className="text-xs text-slate-400">{editingClient.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingClient(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Company / Organization</label>
+                <input
+                  type="text"
+                  value={editFormData.companyName}
+                  onChange={(e) => setEditFormData({ ...editFormData, companyName: e.target.value })}
+                  placeholder="e.g. Experian Live"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Role Permissions</label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as any })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="CLIENT">👤 Experienced Client (CLIENT)</option>
+                  <option value="CB">🛡️ CB Warehouse Staff (CB)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DELETE CLIENT CONFIRMATION MODAL ─── */}
+      {deletingClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="p-2.5 bg-rose-50 rounded-2xl">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Delete Client Account</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              Are you sure you want to delete the account for <strong className="text-slate-900 font-bold">{deletingClient.name || deletingClient.email}</strong>?
+            </p>
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-[11px] text-blue-800 leading-relaxed mb-4">
+              🛡️ <b>Data Safety Guarantee:</b> All products, inventory items, and historical orders associated with this account will remain safely preserved in the master warehouse system.
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingClient(null)}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Yes, Delete Account
+              </button>
+            </div>
           </div>
         </div>
       )}

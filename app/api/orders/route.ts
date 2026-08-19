@@ -145,3 +145,104 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const user = await getAuthUser(req);
+
+    if (!["ADMIN", "CB"].includes(user.role)) {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Admin or Staff role required" },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const orderId = searchParams.get("id");
+
+    if (!orderId) {
+      return NextResponse.json(
+        { success: false, message: "Order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+    const { eventName, eventDate, shipToAddress, returnAddress, specialInstructions, status } = body;
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        eventName: eventName || undefined,
+        eventDate: eventDate ? new Date(eventDate) : undefined,
+        shipToAddress: shipToAddress || undefined,
+        returnAddress: returnAddress || undefined,
+        specialInstructions: specialInstructions !== undefined ? specialInstructions : undefined,
+        status: status || undefined,
+      },
+      include: {
+        client: true,
+        items: {
+          include: {
+            inventory: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Order updated successfully.",
+      data: updatedOrder,
+    });
+  } catch (err: any) {
+    console.error("❌ ORDER UPDATE ERROR:", err.message);
+    return NextResponse.json(
+      { success: false, message: err.message || "Internal Server Error" },
+      { status: err.message?.includes("Unauthorized") ? 401 : 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await getAuthUser(req);
+
+    if (user.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Forbidden: Only Admin can delete orders" },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const orderId = searchParams.get("id");
+
+    if (!orderId) {
+      return NextResponse.json(
+        { success: false, message: "Order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Safely delete order items first, then delete order
+    await prisma.orderItem.deleteMany({
+      where: { orderId: orderId },
+    });
+
+    await prisma.order.delete({
+      where: { id: orderId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Order deleted successfully.",
+    });
+  } catch (err: any) {
+    console.error("❌ ORDER DELETE ERROR:", err.message);
+    return NextResponse.json(
+      { success: false, message: err.message || "Internal Server Error" },
+      { status: err.message?.includes("Unauthorized") ? 401 : 500 }
+    );
+  }
+}

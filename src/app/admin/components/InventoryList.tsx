@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package, User, Shield, Inbox, Loader2, Calendar, Clock, Search, X, Filter, PackageCheck, PackageX } from "lucide-react";
+import { 
+  Package, User, Shield, Inbox, Loader2, Calendar, Clock, 
+  Search, X, Filter, PackageCheck, PackageX, Edit3, Trash2, 
+  AlertTriangle, Check, Layers, Tag, MapPin, Sparkles
+} from "lucide-react";
 import { formatDateTime, formatDate, formatTime } from "@/lib/date";
 
 export default function InventoryList() {
@@ -11,6 +15,20 @@ export default function InventoryList() {
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState("ALL");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Modal states
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [deletingItem, setDeletingItem] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    sku: "",
+    bin: "",
+    quantity: 0,
+    condition: "Good",
+    description: "",
+    clientId: "unassigned",
+  });
 
   const fetchInventoryAndClients = async () => {
     try {
@@ -48,7 +66,7 @@ export default function InventoryList() {
       if (data.success) {
         setInventory((prev) =>
           prev.map((item) =>
-            item.inventoryId === itemId || item.id === itemId
+            (item.inventoryId === itemId || item.id === itemId)
               ? { ...item, stockStatus: data.data.stockStatus, quantity: data.data.quantity }
               : item
           )
@@ -58,6 +76,80 @@ export default function InventoryList() {
       console.error("Toggle stock error:", err);
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleOpenEdit = (item: any) => {
+    setEditingItem(item);
+    setEditFormData({
+      name: item.productName || item.name || "",
+      sku: item.sku || "",
+      bin: item.bin || "",
+      quantity: item.quantity || 0,
+      condition: item.condition || "Good",
+      description: item.description || "",
+      clientId: item.clientId || "unassigned",
+    });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("name", editFormData.name);
+      formData.append("sku", editFormData.sku);
+      formData.append("bin", editFormData.bin);
+      formData.append("quantity", String(editFormData.quantity));
+      formData.append("condition", editFormData.condition);
+      formData.append("description", editFormData.description);
+      formData.append("clientId", editFormData.clientId);
+
+      const itemId = editingItem.inventoryId || editingItem.id;
+      const res = await fetch(`/api/inventory/intake?id=${itemId}`, {
+        method: "PUT",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setEditingItem(null);
+        fetchInventoryAndClients();
+      } else {
+        alert(data.message || "Failed to update item.");
+      }
+    } catch (err) {
+      console.error("Failed to save edit:", err);
+      alert("Error saving item updates.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingItem) return;
+
+    setIsSubmitting(true);
+    try {
+      const itemId = deletingItem.inventoryId || deletingItem.id;
+      const res = await fetch(`/api/inventory/intake?id=${itemId}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setDeletingItem(null);
+        setInventory((prev) => prev.filter((item) => (item.inventoryId !== itemId && item.id !== itemId)));
+      } else {
+        alert(data.message || "Failed to delete item.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Error deleting item.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -93,6 +185,7 @@ export default function InventoryList() {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden max-w-6xl mx-auto">
+      
       {/* Header Section */}
       <div className="px-6 py-5 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
         <div>
@@ -100,7 +193,7 @@ export default function InventoryList() {
             Master Inventory Ledger &amp; Allocations
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            View, assign, and manage stock quantities and ownership for all Experience &amp; Team clients.
+            View, edit, assign, or delete stock records across all client accounts.
           </p>
         </div>
         
@@ -158,7 +251,7 @@ export default function InventoryList() {
                 <th className="px-6 py-3.5 text-center">Stock Status</th>
                 <th className="px-6 py-3.5">Client Assignment</th>
                 <th className="px-6 py-3.5">Intake Agent</th>
-                <th className="px-6 py-3.5 text-right">Intake Timestamp</th>
+                <th className="px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
 
@@ -245,15 +338,23 @@ export default function InventoryList() {
                       </div>
                     </td>
 
-                    {/* Created Date & Time */}
+                    {/* Actions: Edit & Delete */}
                     <td className="px-6 py-4 text-right">
-                      <div className="space-y-0.5">
-                        <p className="font-semibold text-slate-800">
-                          {formatDate(item.createdAt)}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-medium">
-                          {formatTime(item.createdAt)}
-                        </p>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(item)}
+                          title="Edit Inventory Item"
+                          className="p-1.5 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-lg border border-slate-200 hover:border-blue-200 transition cursor-pointer"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingItem(item)}
+                          title="Delete Inventory Item"
+                          className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-lg border border-slate-200 hover:border-rose-200 transition cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -263,6 +364,177 @@ export default function InventoryList() {
           </table>
         )}
       </div>
+
+      {/* ─── EDIT MODAL ─── */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Edit3 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">Edit Inventory Item</h3>
+                  <p className="text-xs text-slate-400">SKU: {editingItem.sku}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingItem(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="mt-4 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Product Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">SKU</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.sku}
+                    onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 font-mono text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Bin Location</label>
+                  <input
+                    type="text"
+                    value={editFormData.bin}
+                    onChange={(e) => setEditFormData({ ...editFormData, bin: e.target.value })}
+                    placeholder="e.g. BIN-A1"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={editFormData.quantity}
+                    onChange={(e) => setEditFormData({ ...editFormData, quantity: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Condition</label>
+                  <select
+                    value={editFormData.condition}
+                    onChange={(e) => setEditFormData({ ...editFormData, condition: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                  >
+                    <option value="Good">Good</option>
+                    <option value="Fair">Fair</option>
+                    <option value="Damaged">Damaged</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Client Allocation</label>
+                <select
+                  value={editFormData.clientId}
+                  onChange={(e) => setEditFormData({ ...editFormData, clientId: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800 cursor-pointer"
+                >
+                  <option value="unassigned">📦 Unassigned Master Stock</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.email} ({c.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Description / Notes</label>
+                <textarea
+                  rows={2}
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  placeholder="Optional item notes..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingItem(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DELETE CONFIRMATION MODAL ─── */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-rose-600 mb-3">
+              <div className="p-2.5 bg-rose-50 rounded-2xl">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-slate-900 text-base">Delete Inventory Record</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-4">
+              Are you sure you want to delete <strong className="text-slate-900 font-bold">{deletingItem.productName || deletingItem.sku}</strong>? This action will archive the inventory item and remove it from active ledgers.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Yes, Delete Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

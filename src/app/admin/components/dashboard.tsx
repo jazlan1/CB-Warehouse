@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import {
   Package, Truck, Clock, DollarSign, ArrowUpRight, 
   AlertTriangle, MapPin, ChevronRight, RefreshCw, 
-  Box, RotateCcw, FileText, Plus, Eye, CheckCircle2, Search
+  Box, RotateCcw, FileText, Plus, Eye, CheckCircle2, Search,
+  Edit3, Trash2, Users, Layers, Sparkles
 } from "lucide-react";
 import { formatDateTime, formatDate, formatTime, formatRelativeTime } from "@/lib/date";
 
@@ -100,15 +101,19 @@ export default function AdminDashboardContent({ onNavigate }: DashboardProps) {
       {/* ── STATS CARDS ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {[
-          { title: "Total Inventory Items", value: stats.totalItems, change: "In warehouse stock", up: true, icon: Box, bg: "bg-blue-50 text-blue-600 border-blue-100" },
-          { title: "Active Shipments", value: stats.activeShipments, change: "In active workflow", up: true, icon: Truck, bg: "bg-emerald-50 text-emerald-600 border-emerald-100" },
-          { title: "Pending Requests", value: stats.pendingRequests, change: "Requires review", up: false, icon: Clock, bg: "bg-amber-50 text-amber-600 border-amber-100" },
+          { title: "Total Inventory Items", value: stats.totalItems, change: "In warehouse stock", up: true, icon: Box, bg: "bg-blue-50 text-blue-600 border-blue-100", target: "inventory" },
+          { title: "Active Shipments", value: stats.activeShipments, change: "In active workflow", up: true, icon: Truck, bg: "bg-emerald-50 text-emerald-600 border-emerald-100", target: "shipments" },
+          { title: "Pending Requests", value: stats.pendingRequests, change: "Requires review", up: false, icon: Clock, bg: "bg-amber-50 text-amber-600 border-amber-100", target: "shipments" },
         ].map((s, i) => {
           const Icon = s.icon;
           return (
-            <div key={i} className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:border-slate-300 transition-all">
+            <div 
+              key={i} 
+              onClick={() => onNavigate(s.target)}
+              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:border-blue-300 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-500">{s.title}</p>
+                <p className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 transition">{s.title}</p>
                 <div className={`p-2.5 rounded-xl border ${s.bg}`}>
                   <Icon className="h-4 w-4" />
                 </div>
@@ -159,9 +164,9 @@ export default function AdminDashboardContent({ onNavigate }: DashboardProps) {
               />
               <button 
                 onClick={() => onNavigate("shipments")} 
-                className="flex items-center gap-1 text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-xl transition font-semibold shadow-2xs"
+                className="flex items-center gap-1 text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-xl transition font-semibold shadow-2xs cursor-pointer"
               >
-                View All &rarr;
+                Manage &rarr;
               </button>
             </div>
           </div>
@@ -205,9 +210,10 @@ export default function AdminDashboardContent({ onNavigate }: DashboardProps) {
                       <td className="px-3 py-3.5 text-right">
                         <button 
                           onClick={() => onNavigate("shipments")} 
-                          className="p-1 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition"
+                          title="View & Edit Shipment"
+                          className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-blue-50 border border-slate-200 transition cursor-pointer"
                         >
-                          <Eye className="h-3.5 w-3.5" />
+                          <Edit3 className="h-3.5 w-3.5" />
                         </button>
                       </td>
                     </tr>

@@ -17,6 +17,9 @@ export function getMailTransporter() {
       host: smtpHost,
       port: smtpPort || 465,
       secure: smtpSecure,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -47,9 +50,7 @@ export function getFromEmail(): string {
   return (
     process.env.SMTP_FROM ||
     process.env.EMAIL_FROM ||
-    process.env.SMTP_USER ||
-    process.env.EMAIL_USER ||
-    "noreply@warehouse-portal.com"
+    '"CodeBLK Warehouse" <noreply@codeblkwarehouse.com>'
   );
 }
 
@@ -66,15 +67,22 @@ export async function sendLoginOtpEmail(email: string, otp: string) {
   await transporter.sendMail({
     from: getFromEmail(),
     to: email,
-    subject: "Your Login OTP Code",
+    subject: "Your CodeBLK Warehouse Login OTP",
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #0f172a; margin-top: 0;">Warehouse Portal Login</h2>
-        <p style="color: #475569; font-size: 15px;">Your one-time verification code is:</p>
-        <div style="background-color: #f1f5f9; padding: 16px; text-align: center; border-radius: 6px; margin: 20px 0;">
-          <span style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: #2563eb;">${otp}</span>
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 30px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #0f172a; margin: 0; font-size: 22px;">CodeBLK Warehouse</h2>
+          <p style="color: #64748b; font-size: 13px; margin-top: 4px;">Logistics &amp; Inventory Management Portal</p>
         </div>
-        <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">This code is valid for <b>5 minutes</b>. If you did not request this code, please ignore this email.</p>
+        <p style="color: #334155; font-size: 15px;">Hello,</p>
+        <p style="color: #475569; font-size: 14px; line-height: 1.5;">Your one-time authentication code for portal access is:</p>
+        <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; padding: 18px; text-align: center; border-radius: 10px; margin: 24px 0;">
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #2563eb; font-family: monospace;">${otp}</span>
+        </div>
+        <p style="color: #64748b; font-size: 13px; line-height: 1.5;">This security verification code will expire in <b>5 minutes</b>.</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
+          Sent automatically from <b>noreply@codeblkwarehouse.com</b>. If you did not request this OTP, please ignore this email.
+        </p>
       </div>
     `,
   });
@@ -93,15 +101,24 @@ export async function sendAdminLoginOtpEmail(email: string, otp: string) {
   await transporter.sendMail({
     from: getFromEmail(),
     to: email,
-    subject: "Admin Access OTP Code",
+    subject: "Admin Access Verification Code - CodeBLK Warehouse",
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #0f172a; margin-top: 0;">Admin Portal Verification</h2>
-        <p style="color: #475569; font-size: 15px;">Your Admin verification OTP is:</p>
-        <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; text-align: center; border-radius: 6px; margin: 20px 0;">
-          <span style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: #0284c7;">${otp}</span>
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 30px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #0f172a; margin: 0; font-size: 22px;">CodeBLK Warehouse</h2>
+          <span style="display: inline-block; background-color: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">
+            Administrative Access
+          </span>
         </div>
-        <p style="color: #64748b; font-size: 13px; margin-bottom: 0;">This administrative code expires in <b>5 minutes</b>.</p>
+        <p style="color: #334155; font-size: 15px;">Administrator,</p>
+        <p style="color: #475569; font-size: 14px; line-height: 1.5;">Use the following one-time code to authenticate your administrative session:</p>
+        <div style="background-color: #f8fafc; border: 2px dashed #93c5fd; padding: 18px; text-align: center; border-radius: 10px; margin: 24px 0;">
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #1e40af; font-family: monospace;">${otp}</span>
+        </div>
+        <p style="color: #64748b; font-size: 13px; line-height: 1.5;">This administrative access code is valid for <b>5 minutes</b>.</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
+          Sent securely from <b>noreply@codeblkwarehouse.com</b>.
+        </p>
       </div>
     `,
   });
